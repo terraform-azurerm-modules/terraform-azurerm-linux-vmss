@@ -2,3 +2,4 @@ provider.tf
 provider.tf.example
 .terraform
 terraform.tfstate*
+.*.swp
