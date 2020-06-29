@@ -2,14 +2,91 @@
 
 ## Description
 
-If only defining one VMSS then use the native azurerm resources. It creating several then this module can reduce down the noise, especially of leveraging the default.
+Creates a VMSS with some sensible defaults.
 
-I NEED TO BE UPDATED
+If you are only defining one VMSS then you may wish to use the native azurerm resources. The benefit of the module is making use the the defaults object to reduce down the configuration when deploying several scale sets.
 
-This Terraform module creates a VMSS. Uses the same defaults object as VMs to reduce down the variables required.
+The defaults object is defined in lockstep with the same object in the VM module so that you can share the same local.
 
-> This is a WORK IN PROGRESS and will definitely change. Currently only supports custom images, doesn't integrate with availability sets or application security groups.
+> This is a WORK IN PROGRESS and will definitely change. Currently only supports custom images.
 
 ## Example
 
-> YEP, THAT WOULD BE NICE
+The example uses a number of modules from this organisation.
+
+> Note that (currently) you must have a custom image or shared image.
+
+```terraform
+locals {
+  load_balancer_defaults = {
+    resource_group_name = azurerm_resource_group.example.name
+    location            = azurerm_resource_group.example.location
+    tags                = azurerm_resource_group.example.tags
+    subnet_id           = azurerm_subnet.example.id
+  }
+
+  vm_defaults = {
+    resource_group_name  = azurerm_resource_group.example.name
+    location             = azurerm_resource_group.example.location
+    tags                 = azurerm_resource_group.example.tags
+    admin_username       = "ubuntu"
+    admin_ssh_public_key = file(~/.ssh/id_rsa.pub)
+    additional_ssh_keys  = []
+    vm_size              = "Standard_B1ls"
+    storage_account_type = "Standard_LRS"
+    identity_id          = null
+    subnet_id            = azurerm_subnet.example.id
+    boot_diagnostics_uri = null
+  }
+}
+
+data "azurerm_image" "ubuntu_18_04" {
+  name                = "ubuntu"
+  resource_group_name = "images"
+}
+
+resource "azurerm_resource_group" "example" {
+  name     = "vmss-example"
+  location = "West Europe"
+  tags = {
+    owner = "Richard Cheney",
+    dept  = "Azure Citadel"
+  }
+}
+
+resource "azurerm_virtual_network" "example" {
+  name                = "example-vnet"
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+  tags                = azurerm_resource_group.example.tags
+  address_space       = ["10.0.0.0/24"]
+}
+
+resource "azurerm_subnet" "example" {
+  name                 = "example-subnet"
+  resource_group_name  = azurerm_resource_group.example.name
+  virtual_network_name = azurerm_virtual_network.example.name
+  address_prefixes     = ["10.0.0.0/26"]
+}
+
+module "example_lb" {
+  source   = "https://github.com/terraform-azurerm-modules/terraform-azurerm-load-balancer"
+  defaults = locals.load_balancer_defaults
+  name     = "example_lb"
+}
+
+module "example_vmss" {
+  source   = "github.com/terraform-azurerm-modules/terraform-azurerm-linux-vmss"
+  defaults = local.vm_defaults
+
+  availability_set_ids                   = [module.example_lb.availability_set_id]
+  load_balancer_backend_address_pool_ids = [module.example_lb.load_balancer_backend_address_pool_id]
+  name                                   = "example_vmss"
+  instances                              = 3
+  source_image_id                        = data.azurerm_image.ubuntu_18_04.id
+}
+
+output "example_load_balancer_ip_address" {
+  value = module.example-lb.load_balancer_private_ip_address
+}
+```
