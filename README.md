@@ -90,3 +90,14 @@ output "example_load_balancer_ip_address" {
   value = module.example-lb.load_balancer_private_ip_address
 }
 ```
+
+## Futures
+
+Depends on the issues raised, but the following are definitely on the list:
+
+1. data disks
+1. platform images
+1. custom extensions
+1. cloud-init
+1. auto-scaling
+1. health
