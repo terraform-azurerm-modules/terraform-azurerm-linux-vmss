@@ -4,14 +4,14 @@ variable "name" {
   default     = ""
 }
 
-variable "instance" {
+variable "instances" {
   description = "Number of VMs in the scale set."
-  type        = int
+  type        = number
   default     = 2
 }
 
 variable "proximity_placement_group_id" {
-  description = "Resource ID for proximity placement group if ensuring low latency.
+  description = "Resource ID for proximity placement group if ensuring low latency."
   type        = string
   default     = null
 }
@@ -19,7 +19,6 @@ variable "proximity_placement_group_id" {
 variable "source_image_id" {
   description = "Custom virtual image ID. Use either this or specify the source image_reference for platform images."
   type        = string
-  default     = null
 }
 
 variable "source_image_reference" {
@@ -149,27 +148,27 @@ variable "boot_diagnostics_uri" {
 
 // ==============================================================================
 
-variable "application_security_group_id" {
-  description = "Resource ID for an application security group."
-  type        = string
+variable "application_security_group_ids" {
+  description = "List of application security group resource IDs."
+  type        = list(string)
   default     = null
 }
 
-variable "availability_set_id" {
-  description = "Resource ID for an availability set."
-  type        = string
+variable "availability_set_ids" {
+  description = "List of availability set resource IDs."
+  type        = list(string)
   default     = null
 }
 
-variable "load_balancer_backend_pool_id" {
-  description = "Resource ID for a load balancer's backend pool."
-  type        = string
+variable "load_balancer_backend_address_pool_ids" {
+  description = "List of load balancer's backend pool resource IDs."
+  type        = list(string)
   default     = null
 }
 
-variable "application_gateway_backend_pool_id" {
-  description = "Resource ID for an application gateway's backend pool."
-  type        = string
+variable "application_gateway_backend_address_pool_ids" {
+  description = "List of application gateway's backend pool resource IDs."
+  type        = list(string)
   default     = null
 }
 

@@ -17,7 +17,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   resource_group_name = local.resource_group_name
   location            = local.location
   tags                = local.tags
-  depends_on          = [var.modules_depends_on]
+  depends_on          = [var.module_depends_on]
 
   sku                          = local.vm_size
   instances                    = var.instances
@@ -37,7 +37,7 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
     public_key = local.admin_ssh_public_key
   }
 
-  source_image_id = local.source_image_id
+  source_image_id = var.source_image_id
 
 
   os_disk {
@@ -56,13 +56,14 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
       primary   = true
       subnet_id = local.subnet_id
 
-      application_gateway_backend_address_pool_ids = [var.application_gateway_backend_pool_id]
-      application_security_group_ids               = [var.application_security_group_id]
+      application_gateway_backend_address_pool_ids = var.application_gateway_backend_address_pool_ids
+      load_balancer_backend_address_pool_ids       = var.load_balancer_backend_address_pool_ids
+      application_security_group_ids               = var.application_security_group_ids
     }
   }
 
+  upgrade_mode = "Manual"
 
-  // upgrade_mode = "Manual"
   //
   // health_probe_id = local.application_gateway_probe_id["Https"]
   //
@@ -80,6 +81,14 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
     content {
       type         = "UserAssigned"
       identity_ids = [local.identity_id]
+    }
+  }
+
+  dynamic "identity" {
+    for_each = toset(local.identity_id == null ? [1] : [])
+
+    content {
+      type = "SystemAssigned"
     }
   }
 }
