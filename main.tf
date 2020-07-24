@@ -1,8 +1,19 @@
+terraform {
+  required_version = ">= 0.12.0"
+  /*
+  required_providers {
+    azurerm = ">= 2.20.0"
+  }
+  */
+
+  // experiments = [variable_validation]
+}
+
 locals {
   resource_group_name  = coalesce(var.resource_group_name, lookup(var.defaults, "resource_group_name", "unspecified"))
   location             = coalesce(var.location, var.defaults.location)
   tags                 = merge(lookup(var.defaults, "tags", {}), var.tags)
-  boot_diagnostics_uri = coalesce(var.boot_diagnostics_uri, var.defaults.boot_diagnostics_uri)
+  boot_diagnostics_uri = try(coalesce(var.boot_diagnostics_uri, var.defaults.boot_diagnostics_uri), null)
   admin_username       = coalesce(var.admin_username, var.defaults.admin_username, "ubuntu")
   admin_ssh_public_key = try(coalesce(var.admin_ssh_public_key, var.defaults.admin_ssh_public_key), file("~/.ssh/id_rsa.pub"))
   additional_ssh_keys  = try(coalesce(var.additional_ssh_keys, var.defaults.additional_ssh_keys), [])
@@ -10,6 +21,7 @@ locals {
   vm_size              = coalesce(var.vm_size, var.defaults.vm_size, "Standard_B1ls")
   identity_id          = try(coalesce(var.identity_id, var.defaults.identity_id), null)
   storage_account_type = coalesce(var.storage_account_type, var.defaults.storage_account_type, "Standard_LRS")
+
 }
 
 resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
@@ -71,8 +83,12 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   //   enabled = true
   // }
 
-  boot_diagnostics {
-    storage_account_uri = local.boot_diagnostics_uri
+  dynamic "boot_diagnostics" {
+    for_each = toset(local.boot_diagnostics_uri != null ? [1] : [])
+
+    content {
+      storage_account_uri = local.boot_diagnostics_uri
+    }
   }
 
   dynamic "identity" {
@@ -93,36 +109,34 @@ resource "azurerm_linux_virtual_machine_scale_set" "vmss" {
   }
 }
 
-/*
-THIS NEEDS VARIABLES AND TESTING FOR SUCCESSFUL AUTOSCALING
-HAVE A SET OF THESE AND A VARIABLE TO CHOOSE - PERHAPS SPLIT E.G. CPU-75-25
+resource "azurerm_monitor_autoscale_setting" "vmss" {
+  for_each = toset(var.autoscale != null ? [var.autoscale.rule.metric] : [])
 
-resource "azurerm_monitor_autoscale_setting" "pool3" {
   name                = "autoscale-config"
-  resource_group_name = azurerm_resource_group.web.name
-  location            = azurerm_resource_group.web.location
-  target_resource_id  = azurerm_linux_virtual_machine_scale_set.web_pool3.id
-  depends_on          = [azurerm_linux_virtual_machine_scale_set.web_pool3]
+  resource_group_name = local.resource_group_name
+  location            = local.location
+  target_resource_id  = azurerm_linux_virtual_machine_scale_set.vmss.id
+  depends_on          = [azurerm_linux_virtual_machine_scale_set.vmss]
 
   profile {
     name = "AutoScale"
 
     capacity {
-      default = 2
-      minimum = 1
-      maximum = 6
+      default = var.autoscale.capacity.default
+      minimum = var.autoscale.capacity.minimum
+      maximum = var.autoscale.capacity.maximum
     }
 
     rule {
       metric_trigger {
-        metric_name        = "Percentage CPU"
-        metric_resource_id = azurerm_linux_virtual_machine_scale_set.web_pool3.id
+        metric_name        = var.autoscale.rule.metric
+        metric_resource_id = azurerm_linux_virtual_machine_scale_set.vmss.id
         time_grain         = "PT1M"
         statistic          = "Average"
         time_window        = "PT5M"
         time_aggregation   = "Average"
         operator           = "GreaterThan"
-        threshold          = 75
+        threshold          = var.autoscale.rule.upper
       }
 
       scale_action {
@@ -135,14 +149,14 @@ resource "azurerm_monitor_autoscale_setting" "pool3" {
 
     rule {
       metric_trigger {
-        metric_name        = "Percentage CPU"
-        metric_resource_id = azurerm_linux_virtual_machine_scale_set.web_pool3.id
+        metric_name        = var.autoscale.rule.metric
+        metric_resource_id = azurerm_linux_virtual_machine_scale_set.vmss.id
         time_grain         = "PT1M"
         statistic          = "Average"
         time_window        = "PT5M"
         time_aggregation   = "Average"
         operator           = "LessThan"
-        threshold          = 25
+        threshold          = var.autoscale.rule.lower
       }
 
       scale_action {
@@ -162,4 +176,3 @@ resource "azurerm_monitor_autoscale_setting" "pool3" {
   //   }
   // }
 }
-*/

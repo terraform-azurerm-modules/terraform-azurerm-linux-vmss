@@ -34,6 +34,26 @@ variable "source_image_reference" {
 
 }
 
+variable "autoscale" {
+  // Possible host metric values: https://docs.microsoft.com/azure/azure-monitor/platform/metrics-supported#microsoftcomputevirtualmachinescalesets
+  //     e.g. "Percentage CPU"
+  // Look to add guest metrics?:  https://docs.microsoft.com/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-mvss-guest-based-autoscale-linux
+  // Users could always create their own autoscaling rules to variantsnot covered by this module
+  type = object({
+    capacity = object({
+      default = number
+      minimum = number
+      maximum = number
+    })
+    rule = object({
+      metric = string
+      upper  = number
+      lower  = number
+    })
+  })
+  default = null
+}
+
 // ==============================================================================
 
 variable "defaults" {
